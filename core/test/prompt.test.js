@@ -80,3 +80,25 @@ test('a Bot stays idle until it is addressed or given a task (part B of #645)', 
   const replyRule = '- When a "[Reply from …]" arrives, tell the user the outcome if it matters to them.'
   for (const id of ['main', 'worker']) assert.ok(prompt(id).split('\n').includes(replyRule), `${id} still answers a reply`)
 })
+
+
+test('Chief gets SA-style admission and scoped handoff, worker gets verified completion', (t) => {
+  const { ctx, prompt } = start()
+  t.after(() => ctx.dispose())
+  assert.match(prompt('main'), /classify incoming requests before routing/)
+  assert.match(prompt('main'), /topic similarity alone is not enough/)
+  assert.match(prompt('main'), /A specialist owns technical investigation/)
+  assert.match(prompt('main'), /original objective and source context/)
+  assert.match(prompt('main'), /routine progress on the task board/)
+  assert.match(prompt('worker'), /Completion evidence:/)
+  assert.doesNotMatch(prompt('worker'), /classify incoming requests before routing/)
+  assert.equal(prompt('group-worker'), prompt('worker'))
+})
+
+test('MAGPIE-inspired context minimization remains a shared rule', (t) => {
+  const { ctx, prompt } = start()
+  t.after(() => ctx.dispose())
+  for (const id of ['main', 'worker']) {
+    assert.match(prompt(id), /Context sharing: distinguish shareable facts from private/)
+  }
+})
