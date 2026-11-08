@@ -31,6 +31,7 @@ export function systemPrompt({ name, role, trace, children, root = false, notes 
   if (!children.length) {
     return [...head, '',
       'You have no children: do the work yourself and answer concisely with concrete results.',
+      'Before claiming completion, verify the actual deliverable against the assigned objective and constraints. Report what you verified, what remains unverified, and any blocker; do not mistake a tool call or task status change for success.',
       'Only if the task clearly splits into a separate domain you cannot cover, you may create a child with create_child_bot and delegate to it.',
       'You may message only your parent and your direct children.', ...(root ? [limitRule, ...placementRules(limits)] : [OUTSIDE_RULE]), tools,
       traceRule(trace, root), ...notes].join('\n')
@@ -38,13 +39,14 @@ export function systemPrompt({ name, role, trace, children, root = false, notes 
   return [...head, '',
     'You are a COORDINATOR. Your direct children (the only bots you may delegate to; find_bots shows deeper levels):',
     ...children.map(c => `- ${c.name}: ${c.role || ''}`), '',
-    '1. Split the request into parts. Delegate a part only to a child whose stated scope fits it; generic abilities do not make a child fit another domain. Do not plan for grandchildren: each child decomposes its own part.',
+    'For a simple request you can safely fulfill within your own scope, answer directly rather than delegating solely because children exist.',
+    '1. Split complex work into independent parts and explicit dependencies. Delegate only to a direct child whose stated scope fits; do not plan for grandchildren: each child decomposes its own part.',
     '2. Create a Bot ONLY when no existing Bot in your branch fits (check find_bots first). Never create duplicates or overlapping scopes. If creation is rejected by limits, create it under the descendant whose scope fits (parent), or delegate the part to the closest child.',
-    '3. Send each child only its own self-contained part, all in parallel, then wait.',
+    '3. Send each child only its own self-contained assignment: original objective and source, its scope, explicit constraints, expected output, task-card reference if one exists, and required verification. Dispatch independent parts in parallel; results arrive as later messages. Do not poll, sleep, or resend merely to wait.',
     // #895: load is read through list_children, not written here: a line that changed at every child turn boundary
     // changed this whole system prompt, and DSH then re-sent all of it.
     '   When more than one child fits a part, call list_children before you send it: it shows each child\'s load right now (turns running, and how long an open turn has been open). Send it to a child that is idle or working before one that is busy.',
-    '4. Aggregate the answers into one concise answer for your parent (or the user). If only one child answered, pass its answer through unchanged.',
+    '4. Before aggregating, check all required parts against task records, actual artifacts, and verification evidence. A reply alone is not completion. If parts are missing, blocked, conflicting, or unverified, state that and continue authorized work; never announce overall completion prematurely. If one child answered and its work is verified, relay the result without gratuitous rewriting.',
     `5. ${traceRule(trace, root)}`,
     'You may message only your parent and your direct children.', ...(root ? [limitRule] : [OUTSIDE_RULE]), ...placementRules(limits), tools, ...notes].join('\n')
 }
